@@ -43,36 +43,12 @@ public class TelegramBotUpdatesListener implements UpdatesListener {
     public int process(List<Update> updates) {
         updates.forEach(update -> {
             logger.info("Processing update: {}", update);
-            Long chatId;
-            try {
-                if (!(update.callbackQuery() == null)) {
-                    chatId = update.callbackQuery().message().chat().id();
-                } else if (!(update.editedMessage() == null)) {
-                    chatId = update.editedMessage().chat().id();
-                } else {
-                    chatId = update.message().chat().id();
-                }
-            } catch (NullPointerException e) {
-                logger.error("Chat_id is null");
-                return;
-            }
-            String message;
-            try {
-                if (!(update.callbackQuery() == null)) {
-                    message = update.callbackQuery().data();
-                } else if (!(update.editedMessage() == null)) {
-                    message = update.editedMessage().text();
-                } else {
-                    message = update.message().text();
-                }
-            } catch (NullPointerException e) {
-                telegramBot.execute(new SendMessage(chatId, "Ой, кажется Вы не указали задачу"));
-                return;
-            }
+            Long chatId = extractChatId(update);
+            String message = extractMessage(update, chatId);
             Matcher matcher = PATTERN.matcher(message);
             if (message.equals("/start")) {
                 String welcomeMessage = "Привет! Этот бот умеет сохранять Ваши задачи и отправлять напоминания о них в назначенное время.\n" +
-                        "Чтобы добавить задачу, отправьте ее мне в формате: 01.10.2023 22:30 Играть в FFXVI";
+                        "Чтобы добавить задачу, отправьте ее мне в формате: 01.10.2023 12:30 Играть в FFXVI";
                 SendMessage sendMessage = new SendMessage(chatId, welcomeMessage).replyMarkup(prepareInlineKeyBoard());
                 telegramBot.execute(sendMessage);
             } else if (message.equals("/active_tasks")) {
@@ -117,11 +93,42 @@ public class TelegramBotUpdatesListener implements UpdatesListener {
         return sb.toString();
     }
 
-    public static InlineKeyboardMarkup prepareInlineKeyBoard() {
+    private static InlineKeyboardMarkup prepareInlineKeyBoard() {
         InlineKeyboardMarkup keyboardMarkup = new InlineKeyboardMarkup();
         keyboardMarkup.addRow(new InlineKeyboardButton("Предстоящие задачи").callbackData("/active_tasks"));
         keyboardMarkup.addRow(new InlineKeyboardButton("Выполненные задачи").callbackData("/completed_tasks"));
         return keyboardMarkup;
+    }
+
+    private Long extractChatId(Update update) {
+        try {
+            if (!(update.callbackQuery() == null)) {
+                return update.callbackQuery().message().chat().id();
+            } else if (!(update.editedMessage() == null)) {
+                return update.editedMessage().chat().id();
+            } else {
+                return update.message().chat().id();
+            }
+        } catch (NullPointerException e) {
+            logger.error("Chat Id is null");
+            throw new RuntimeException();
+        }
+    }
+
+    private String extractMessage(Update update, Long chatId) {
+        try {
+            if (!(update.callbackQuery() == null)) {
+                return update.callbackQuery().data();
+            } else if (!(update.editedMessage() == null)) {
+                return update.editedMessage().text();
+            } else {
+                return update.message().text();
+            }
+        } catch (NullPointerException e) {
+            telegramBot.execute(new SendMessage(chatId, "Ой, кажется Вы не указали задачу"));
+            logger.error("Message is null");
+            throw new RuntimeException();
+        }
     }
 
 }
