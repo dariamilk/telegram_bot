@@ -25,15 +25,13 @@ public class NotificationSender {
 
     @Scheduled(cron = "0 0/1 * * * *")
     public void sendReminder() {
-        notificationTaskRepository.findAll().forEach(task -> {
-            if (task.getDate().isBefore(LocalDateTime.now()) && !task.getSendStatus()) {
-                SendMessage sendMessage = new SendMessage(Long.parseLong(task.getChatId()), task.getTask());
-                telegramBot.execute(sendMessage);
-                NotificationTaskEntity taskForUpdate = notificationTaskRepository.findById(task.getId()).get();
-                taskForUpdate.setSendStatus(true);
-                notificationTaskRepository.save(taskForUpdate);
-                LOG.info("Notification was sent on task " + task.getTask());
-            }
+        notificationTaskRepository.findAllByDateBeforeAndSendStatusFalse(LocalDateTime.now()).forEach(task -> {
+            SendMessage sendMessage = new SendMessage(Long.parseLong(task.getChatId()), task.getTask());
+            telegramBot.execute(sendMessage);
+            NotificationTaskEntity taskForUpdate = notificationTaskRepository.findById(task.getId()).get();
+            taskForUpdate.setSendStatus(true);
+            notificationTaskRepository.save(taskForUpdate);
+            LOG.info("Notification was sent on task " + task.getTask());
         });
     }
 }
